@@ -4,43 +4,79 @@ Created on Fri Feb  1 20:00:56 2019
 
 @author: amar.lad
 """
-
 import csv
 import os
-import sys
+import json
+import logging
 
 from geopy.geocoders import Nominatim
 
+#   sys.stdout = open('JASON_store_latitude_longitude.txt','wt')
+
+data = {}
+data['location'] = []   
+keywords = ["SUITE", "SPACE", "STORE", "UNIT", "BLDG"]
+READ_MODE = 'r'
 geolocator = Nominatim(user_agent="store_latitude_longitude")
 BASEDIR = "C:/Users/amar.lad/Desktop/Sephora" 
+csvFilename = 'locationAddressUS.csv'
 
-csvfile = open(os.path.join(BASEDIR, 'locationAddress.csv'))
-sys.stdout = open('y_store_latitude_longitude.txt','wt')
+def readCSV(csvBASEDIR, csvFilename):
+    reader = None
+    try:
+#        with open(os.path.join(csvBASEDIR, csvFilename), READ_MODE) as csvfile:
+#            reader = csv.reader(csvfile)
+        csvfile = open(os.path.join(csvBASEDIR, csvFilename))
+        reader = csv.reader(csvfile)
+    except IOError:
+        logging.exception('')
+    if not reader:
+        raise ValueError('No data available')
+    return reader
 
-reader = csv.reader(csvfile)
-next(reader, None)
+def checkWords(parm_row, parm_digit = None):
+    returnString = ' '
+    if not (any(keyword in parm_row for keyword in keywords) and parm_row):
+        if parm_digit is not None:
+            if any(c.isdigit() for c in parm_row):
+                returnString = parm_row + ','
+        else:
+            returnString = parm_row + ','
+    return returnString
+        
+csvReader = readCSV(BASEDIR, csvFilename)
+next(csvReader, None)
 
-keywords = ["SUITE", "SPACE", "STORE", "UNIT", "BLDG", "STE"]
-
-for row in reader:
+for row in csvReader:
     string = ' '
-    if not any(keyword in row[1] for keyword in keywords):
-        if any(c.isdigit() for c in row[1]):
-            string += row[1] + ','
-    if (not any(keyword in row[2] for keyword in keywords) and row[2]):
-        string += row[2] + ','
-    if (not any(keyword in row[3] for keyword in keywords) and row[3]):
-        string += row[3] + ','
-    string += row[4] + ',' + row[5] + ',' + row[6][:5] + ',' + row[7]
-#    print(row[0])
-#    print(string)
-    location = geolocator.geocode(string, timeout=20)
+    if row[1]:
+        string = checkWords(row[1], True).strip()
+    if row[2]:
+        string += checkWords(row[2]).strip()
+    if row[3]:
+        string += checkWords(row[3]).strip()
+    if row[4]:
+        string += row[4] + ','  
+    if row[5]:
+        string += row[5] + ','
+    if row[6]:       
+        string += row[6][:5] + ','    
+    if row[7]:       
+        string += row[7]         
+    
+    location = geolocator.geocode(string, timeout=50)
     if location:
-        a = '}, {'
-        b = '   ' + 'position: new google.maps.LatLng(' + repr(location.latitude) + ',' + repr(location.longitude) + '),'
-        c = "    type: 'info'"
-        print(a)
-        print(b)
-        print(c)
-#        print(row[0])
-#        print(string)
+#        a = '}, {'
+#        b = '   ' + 'position: new google.maps.LatLng(' + repr(location.latitude) + ',' + repr(location.longitude) + '),'
+#        c = "    type: 'info'"
+#        print(a)
+#        print(b)
+#        print(c)
+        data['location'].append({
+            'store': int(row[0]),
+            'latitude': location.latitude,
+            'longitude': location.longitude,
+            'address': string})
+
+with open('JASON_store_latitude_longitude.txt', 'w') as outfile:  
+    json.dump(data, outfile, indent=4)
